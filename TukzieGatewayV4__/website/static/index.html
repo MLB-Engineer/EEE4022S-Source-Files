@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="Tukzie modern e-vehicle web dashboard frontend prototype." name="description"/>
+<title>Tukzie E-Vehicle Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="/static/favicon.svg" rel="icon" type="image/svg+xml"/>
+<!-- Leaflet Map CSS & JS (navigation widget) -->
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="/static/css/styles.css" rel="stylesheet"/>
+</head>
+<body class="">
+<div aria-hidden="true" class="ambient-bg">
+<span class="orb orb-one"></span>
+<span class="orb orb-two"></span>
+<span class="orb orb-three"></span>
+<span class="grid-glow"></span>
+</div>
+<!--
+    React/FastAPI migration note:
+    Keep #app-root as the future React mount point.
+    Each widget uses data-widget and data-access attributes so React components can be mapped cleanly later.
+    API-ready sections include data-endpoint attributes for future FastAPI routes.
+  -->
+<div id="app-root">
+<section aria-labelledby="login-title" class="screen login-screen is-visible" id="login-screen">
+<div class="login-shell">
+<div class="brand-lockup login-brand">
+<div aria-hidden="true" class="brand-mark">T</div>
+<div>
+<p class="eyebrow">Tukzie Web Console</p>
+<h1 id="login-title">Who's driving?</h1>
+</div>
+</div>
+<div class="profile-grid" role="list">
+<button class="profile-card" data-access-level="A" data-login-role="guest" role="listitem" type="button">
+<span aria-hidden="true" class="profile-avatar guest-avatar">G</span>
+<span class="profile-name">Guest</span>
+</button>
+<button class="profile-card" data-access-level="B" data-login-role="operator" role="listitem" type="button">
+<span aria-hidden="true" class="profile-avatar driver-avatar">O</span>
+<span class="profile-name">Operator</span>
+</button>
+<button class="profile-card" data-access-level="C" data-login-role="developer" role="listitem" type="button">
+<span aria-hidden="true" class="profile-avatar developer-avatar">D</span>
+<span class="profile-name">Developer</span>
+</button>
+</div>
+<p class="project-link">Part of the Tukzie electric tuk-tuk project · <a href="https://tukzie.com/" rel="noopener noreferrer" target="_blank">tukzie.com ↗</a></p>
+</div>
+</section>
+<div aria-hidden="true" class="modal" id="pin-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="pin-title" aria-modal="true" class="modal-panel pin-panel" role="dialog">
+<button aria-label="Close PIN dialog" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">Secure profile</p>
+<h2 id="pin-title">Enter PIN</h2>
+<p class="modal-copy" id="pin-copy">Use the assigned profile PIN to continue.</p>
+<input aria-label="Profile Password" class="pin-input" id="pin-input" maxlength="32" placeholder="Enter password" type="password"/>
+<p class="pin-error" id="pin-error" role="alert"></p>
+<button class="primary-button" id="pin-submit" type="button">Unlock dashboard</button>
+</div>
+</div>
+<section aria-label="Tukzie dashboard" class="screen dashboard-screen" id="dashboard-screen">
+<header class="topbar">
+<button aria-expanded="false" aria-label="Open menu" class="hamburger" id="menu-toggle" type="button">
+<span></span><span></span><span></span>
+</button>
+<div class="brand-lockup">
+<div aria-hidden="true" class="brand-mark">T</div>
+<div>
+<p class="eyebrow">Electric Tuk-Tuk</p>
+<h2>Tukzie</h2>
+</div>
+</div>
+<div class="status-strip" data-endpoint="/api/v1/vehicle/status">
+<span class="status-pill nondeveloper"><span aria-hidden="true" class="mini-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"></path></svg></span><span id="status-temp">24°C</span></span>
+<span class="status-pill nondeveloper"><span aria-hidden="true" class="mini-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><rect height="10" rx="2" width="16" x="3" y="7"></rect><path d="M21 10v4M7 10v4m4-4v4m4-4v4"></path></svg></span><span id="status-battery">81%</span></span>
+<span class="status-pill"><span aria-hidden="true" class="mini-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 6v6l4 2"></path></svg></span><span id="status-time">13:22</span></span>
+</div>
+<button aria-label="Switch profile" class="profile-chip" id="profile-switch" type="button">
+<span id="active-profile-avatar">G</span>
+<span id="active-profile-name">Guest</span>
+</button>
+</header>
+<nav aria-label="Dashboard sections" class="tab-bar">
+<button class="tab-button is-active" data-access="ABC" data-tab="overview" type="button">Overview</button>
+<button class="tab-button" data-access="BC" data-tab="trips" type="button">Trips</button>
+<button class="tab-button" data-access="C" data-tab="system-health" type="button">System Health</button>
+<button class="tab-button" data-access="BC" data-tab="control" type="button">Control</button>
+<button class="tab-button" data-access="BC" data-tab="analytics" type="button">Analytics</button>
+</nav>
+<aside aria-hidden="true" class="side-menu" id="side-menu">
+<div class="side-menu-header">
+<div>
+<p class="eyebrow">Command menu</p>
+<h3 class="nondeveloper">Tukzie Controls</h3>
+</div>
+<button aria-label="Close menu" class="icon-button" id="menu-close" type="button">×</button>
+</div>
+<div class="menu-section">
+<h4>Tukzie project</h4>
+<a class="project-link-button" href="https://tukzie.com/" rel="noopener noreferrer" target="_blank">Visit tukzie.com ↗</a>
+</div>
+<div class="menu-section">
+<h4>Profiles</h4>
+<div class="profile-actions">
+<button data-switch-role="guest" type="button">Guest</button>
+<button data-switch-role="operator" type="button">Operator</button>
+<button data-switch-role="developer" type="button">Developer</button>
+</div>
+</div>
+<div class="menu-section">
+<h4>Appearance</h4>
+<label class="field-label nondeveloper" for="theme-select">Theme</label>
+<select class="select-control nondeveloper" id="theme-select">
+<option selected="" value="">Tukzie Green</option>
+<option value="theme-dark">Neo Dark</option>
+<option value="theme-light">Solar Light</option>
+<option value="theme-forest">Eco Green</option>
+</select>
+<label class="field-label" for="brightness-slider">Brightness</label>
+<input id="brightness-slider" max="125" min="70" type="range" value="100"/>
+</div>
+<div class="menu-section nondeveloper">
+<h4>Trip options</h4>
+<button class="primary-button" data-access="BC" id="open-options-button" type="button">Trip simulation settings</button>
+</div>
+<div class="menu-section nondeveloper">
+<h4>Custom tiles</h4>
+<div class="tile-toggle-list" id="tile-toggle-list"></div>
+</div>
+</aside>
+<main class="dashboard-root" data-api-base="/api/v1" id="dashboard-root">
+<section class="tab-panel is-active" data-tab-panel="overview">
+<section class="hero-panel nondeveloper">
+<div>
+<p class="eyebrow">Live overview</p>
+<h1>Modern electric mobility cockpit</h1>
+<p class="hero-copy">Responsive web front end for dashboard demonstrations, ready for future React components and FastAPI telemetry.</p>
+</div>
+<div class="hero-stats">
+<span><strong id="hero-range">--</strong><small>km range</small></span>
+<span><strong id="hero-mode">--</strong><small>drive mode</small></span>
+<span><strong id="hero-health">--</strong><small>battery health</small></span>
+</div>
+</section>
+<section aria-label="Dashboard widgets" class="widget-grid nondeveloper">
+<article class="widget-card widget-dynamics" data-endpoint="/api/v1/telemetry/dynamics" data-widget="dynamics">
+<div class="widget-header">
+<span class="widget-icon">⚡</span>
+<div>
+<h3>Dynamics</h3>
+</div>
+</div>
+<div class="speed-dial" style="--speed-progress: 0.58;">
+<svg aria-hidden="true" class="dial-svg" viewbox="0 0 220 220">
+<defs>
+<lineargradient id="speed-gradient" x1="0" x2="1" y1="0" y2="1">
+<stop offset="0%" stop-color="#39f4ff"></stop>
+<stop offset="55%" stop-color="#2f8cff"></stop>
+<stop offset="100%" stop-color="#46f38b"></stop>
+</lineargradient>
+</defs>
+<circle class="dial-track" cx="110" cy="110" r="92"></circle>
+<circle class="dial-progress" cx="110" cy="110" r="92"></circle>
+</svg>
+<div class="dial-core">
+<span id="speed-value">-</span>
+<small>km/h</small>
+</div>
+</div>
+<div class="dynamics-footer">
+<span>Throttle <strong id="throttle-value">--</strong></span>
+<span>Brake <strong id="brake-value">--</strong></span>
+</div>
+</article>
+<article class="widget-card" data-endpoint="/api/v1/analytics/range" data-widget="range">
+<div class="widget-header">
+<span class="widget-icon">📍</span>
+<div>
+<h3>Range Analytics</h3>
+</div>
+</div>
+<div class="metric-row primary-metric">
+<span>Range</span>
+<strong><span id="range-value">--</span> km</strong>
+</div>
+<div class="metric-row">
+<span>Consumption</span>
+<strong><span id="consumption-value">--</span>%/km</strong>
+</div>
+<div aria-label="Battery range meter" class="bar-meter"><span id="range-meter-fill"></span></div>
+<p class="widget-note">Range is estimated from battery consumption per kilometre.</p>
+</article>
+<article aria-label="Open Program 9 pre-drive simulation" class="widget-card interactive-card" data-access="BC" data-endpoint="/api/v1/trips/estimate" data-widget="estimated-trip" role="button" tabindex="0">
+<div class="widget-header">
+<span class="widget-icon">🧭</span>
+<div>
+<h3>Estimated Trip</h3>
+</div>
+</div>
+<div class="trip-readout">
+<strong><span id="trip-arrival-soc">--</span>%</strong>
+<span>estimated arrival battery</span>
+</div>
+<div class="metric-row">
+<span>Remaining range at arrival</span>
+<strong><span id="trip-remaining-range">--</span> km</strong>
+</div>
+<div class="metric-row">
+<span>ETA</span>
+<strong><span id="trip-summary-eta">--</span></strong>
+</div>
+<p class="widget-note">Tap to run the Program 9 ASIS pre-drive simulation.</p>
+</article>
+<article aria-label="Open battery state popup" class="widget-card interactive-card battery-widget" data-endpoint="/api/v1/battery/state" data-widget="battery" role="button" tabindex="0">
+<div class="widget-header">
+<span class="widget-icon">🔋</span>
+<div>
+<h3>Battery State of Charge</h3>
+</div>
+</div>
+<div class="vehicle-soc" style="--soc-level: 81%; --soc-color: var(--success);">
+<div class="vehicle-fill"></div>
+</div>
+<div class="metric-row primary-metric">
+<span>SOC</span>
+<strong><span id="soc-value">--</span>%</strong>
+</div>
+<p class="widget-note">Tap for voltage, temperature, health, and charging table.</p>
+</article>
+<article class="widget-card" data-endpoint="/api/v1/environment/current" data-widget="environment">
+<div class="widget-header">
+<span class="widget-icon weather-icon" id="weather-icon">🌦</span>
+<div>
+<h3>Environmental Conditions</h3>
+</div>
+</div>
+<div class="weather-display">
+<strong id="weather-temp">--</strong>
+<span id="weather-description">Partly cloudy</span>
+</div>
+<p class="widget-note">Outside temperature and weather description.</p>
+</article>
+<article class="widget-card map-widget" data-access="BC" data-endpoint="/api/v1/navigation/history" data-widget="navigation">
+<div class="widget-header nav-widget-header">
+<span class="widget-icon">🗺️</span>
+<div>
+<h3>Navigation</h3>
+</div>
+<div class="nav-tile-controls">
+<span class="nav-badge" id="nav-tile-live-badge">Live</span>
+<button class="nav-my-trips-button" id="open-my-trips-button" type="button">📋 My Trips</button>
+<select class="select-control nav-range-select" id="nav-tile-range-select">
+<option value="live">Live Only</option>
+<option value="24h">Last 24 Hours</option>
+<option value="7d">Last 7 Days</option>
+</select>
+</div>
+</div>
+<div aria-label="Live vehicle location map" class="nav-tile-map" id="nav-tile-map"></div>
+<button class="ghost-button nav-tile-search-button" id="nav-tile-search-button" type="button">🔍 Search a destination</button>
+</article>
+<article aria-label="Open full vehicle diagnostics" class="widget-card interactive-card" data-access="BC" data-endpoint="/api/v1/vehicle/info" data-widget="vehicle-info" role="button" tabindex="0">
+<div class="widget-header">
+<span class="widget-icon">🛞</span>
+<div>
+<h3>Vehicle Information</h3>
+</div>
+</div>
+<div class="info-grid-small">
+<div><span>Tyre pressure</span><strong id="tyre-pressure">--</strong></div>
+<div><span>Motor temp</span><strong id="motor-temp">--</strong></div>
+<div><span>Vehicle load</span><strong id="vehicle-load">--</strong></div>
+</div>
+<p class="widget-note">Tap for power, temperatures, voltage, and drive status.</p>
+</article>
+<article class="widget-card graphs-widget" data-access="ABC" data-endpoint="/api/v1/analytics/graphs" data-widget="graphs">
+<div class="widget-header">
+<span class="widget-icon">📈</span>
+<div>
+<h3>Graphs</h3>
+</div>
+</div>
+<div aria-label="Vehicle performance radar chart" class="radar-area">
+<div class="chart-header">
+<div id="radar-metric-title">Performance Analysis</div>
+<div id="radar-overall-score">-- / 100</div>
+</div>
+<svg aria-hidden="true" id="performance-radar" preserveaspectratio="xMidYMid meet" viewbox="0 0 400 380">
+<g id="radar-grid"></g>
+<polygon id="radar-shape" points=""></polygon>
+<g id="radar-points"></g>
+<g id="radar-axis-labels"></g>
+</svg>
+</div>
+<div aria-label="Graph selector" class="graph-tabs" role="tablist">
+<button class="is-active" data-graph="performance" type="button">Performance Analysis</button>
+<button data-graph="speed" type="button">Speed</button>
+<button data-graph="distance" type="button">Distance</button>
+<button data-graph="battery" type="button">Battery</button>
+<button data-graph="power" type="button">Power</button>
+<button data-graph="consumption" type="button">Consumption</button>
+</div>
+<div aria-label="Selected telemetry graph" class="chart-area">
+<div class="chart-header">
+<div id="chart-metric-title">Speed</div>
+<div id="chart-metric-value">-- km/h</div>
+</div>
+<svg aria-hidden="true" id="mini-chart" preserveaspectratio="xMidYMid meet" viewbox="0 0 460 220">
+<g id="chart-grid"></g>
+<g id="chart-y-axis"></g>
+<g id="chart-x-axis"></g>
+<g id="chart-point-layer"></g>
+<polyline id="chart-line" points=""></polyline>
+</svg>
+</div>
+</article>
+</section>
+<section aria-label="Raw STM sensor feed" class="widget-grid">
+<div class="sensor-feed-heading">
+<p class="eyebrow nondeveloper">Ground truth</p>
+<h2>Raw sensor feed</h2>
+<p class="hero-copy nondeveloper">Straight from <code>gateway/schema.py</code> — every card below reads one real field from the telemetry packet, with no derived or simulated numbers.</p>
+<p class="developer-only feed-status" id="feed-status" role="status">Waiting for telemetry</p></div>
+<article class="widget-card" data-widget="imu-front">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m15 9-2 4-4 2 2-4z"></path></svg></span>
+<div><h3>Front IMU</h3></div>
+</div>
+<div class="metric-row"><span>Pitch</span><strong><span id="stm-fimu-pitch">--</span>°</strong></div>
+<div class="metric-row"><span>Roll</span><strong><span id="stm-fimu-roll">--</span>°</strong></div>
+<p class="widget-note nondeveloper">Field: <code>cImu</code></p>
+</article>
+<article class="widget-card" data-widget="imu-rear">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m15 9-2 4-4 2 2-4z"></path></svg></span>
+<div><h3>Rear IMU</h3></div>
+</div>
+<div class="metric-row"><span>Pitch</span><strong><span id="stm-rimu-pitch">--</span>°</strong></div>
+<div class="metric-row"><span>Roll</span><strong><span id="stm-rimu-roll">--</span>°</strong></div>
+<p class="widget-note nondeveloper">Field: <code>rImu</code></p>
+</article>
+<article class="widget-card" data-widget="radar">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0M7 12a5 5 0 0 1 10 0M12 12v8m-3 0h6"></path><circle cx="12" cy="12" r="1"></circle></svg></span>
+<div><h3>Radar</h3></div>
+</div>
+<div class="metric-row"><span>Front distance</span><strong><span id="stm-fradar">--</span> m</strong></div>
+<div class="metric-row"><span>Rear distance</span><strong><span id="stm-bradar">--</span> m</strong></div>
+<p class="widget-note nondeveloper">Fields: <code>fRadar</code>, <code>bRadar</code></p>
+</article>
+<article class="widget-card" data-widget="pedals">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><rect height="10" rx="2" width="6" x="4" y="4"></rect><rect height="10" rx="2" width="6" x="14" y="7"></rect><path d="M7 14v6m10-3v3"></path></svg></span>
+<div><h3>Pedals &amp; lever</h3></div>
+</div>
+<div class="metric-row"><span>Throttle</span><strong><span id="stm-throttle">--</span>%</strong></div>
+<div class="metric-row"><span>Brake</span><strong><span id="stm-brake">--</span>%</strong></div>
+<div class="metric-row"><span>Gear lever</span><strong><span id="stm-lever">--</span></strong></div>
+<p class="widget-note nondeveloper">Fields: <code>throttle</code>, <code>brake</code>, <code>lever</code></p>
+</article>
+<article class="widget-card" data-widget="environment-raw">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"></path></svg></span>
+<div><h3>Ambient</h3></div>
+</div>
+<div class="metric-row"><span>Light</span><strong><span id="stm-light">--</span> lux</strong></div>
+<div class="metric-row"><span>Rain</span><strong><span id="stm-rain">--</span></strong></div>
+<p class="widget-note nondeveloper">Fields: <code>light</code>, <code>rain</code></p>
+</article>
+<article class="widget-card" data-widget="battery-raw">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><rect height="10" rx="2" width="16" x="3" y="7"></rect><path d="M21 10v4M7 10v4m4-4v4m4-4v4"></path></svg></span>
+<div><h3>Battery pack</h3></div>
+</div>
+<div class="metric-row"><span>SoC</span><strong><span id="stm-batt-soc">--</span>%</strong></div>
+<div class="metric-row"><span>Voltage</span><strong><span id="stm-batt-voltage">--</span> V</strong></div>
+<div class="metric-row"><span>Temp</span><strong><span id="stm-batt-temp">--</span>°C</strong></div>
+<div class="metric-row"><span>Current</span><strong><span id="stm-batt-current">--</span> A</strong></div>
+<div class="metric-row"><span>Fault code</span><strong><span id="stm-batt-fault">--</span></strong></div>
+<p class="widget-note nondeveloper">Fields: <code>bSOC</code>, <code>bVoltage</code>, <code>bTemp</code>, <code>bCurrent</code>, <code>bFault</code></p>
+</article>
+<article class="widget-card" data-access="BC" data-widget="location">
+<div class="widget-header">
+<span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"></path><circle cx="12" cy="10" r="2"></circle></svg></span>
+<div><h3>Location</h3></div>
+</div>
+<p class="widget-note" id="location-note">Not available yet — there's no GPS field in <code>gateway/schema.py</code> yet. Add one there and it'll show up here (rounded for Guest, exact for Operator/Developer).</p>
+</article>
+</section>
+</section>
+<section class="tab-panel" data-tab-panel="trips">
+<div class="sensor-feed-heading">
+<p class="eyebrow nondeveloper">History</p>
+<h2>Trips</h2>
+<p class="hero-copy nondeveloper" id="trips-note">Recent trips will appear here once a real distance/GPS source is wired up (no speed or odometer sensor exists in <code>gateway/schema.py</code> yet). The map below is a simulated route for layout purposes only.</p>
+<p class="hero-copy developer-only">Recent trips will appear here.</p></div>
+<div class="trip-log-list" id="trip-log-list">
+<p class="widget-note">No trip history yet.</p>
+</div>
+<div aria-label="Trip route map (placeholder)" class="nav-map-container nondeveloper" id="trips-route-map">
+<p class="widget-note" style="padding:16px;">Map placeholder — wire this up to real GPS trace data once <code>gateway/schema.py</code> has a location field. (The existing "My Trips" destination-search map on the Overview tab's Navigation widget is a separate, pre-existing feature and untouched.)</p>
+</div>
+<article class="widget-card developer-only demo-trip" id="trip-preview">
+<div class="demo-trip-header"><div><p class="eyebrow">Trip preview</p><h3 id="trip-preview-title">UCT → Cape Town CBD</h3></div><span class="demo-badge" id="trip-preview-badge">Illustrative example</span></div>
+<p class="widget-note" id="trip-preview-note">A preview of future trip history. This is not a recorded trip or the simulation's GPS trace.</p>
+<div id="trip-route-figure"><svg aria-labelledby="route-title route-description" class="trip-route-sketch" role="img" viewbox="0 0 900 290">
+<title id="route-title">Illustrative UCT to Cape Town CBD route</title>
+<desc id="route-description">A schematic path from UCT through the southern suburbs and Woodstock to Cape Town CBD; not to scale.</desc>
+<rect fill="#0c261f" height="290" rx="18" width="900"></rect>
+<path d="M20 245 Q200 155 280 235 T580 245 L730 290H20Z" fill="#183c2d"></path>
+<path d="M665 0Q640 65 780 100T900 150V0Z" fill="#123e46"></path>
+<g fill="none" stroke="#315346" stroke-width="12"><path d="M40 70L860 240M170 0L470 290M440 0L650 290M70 210L810 60"></path></g>
+<path d="M130 225L240 192L330 157L455 143L555 90L680 88L775 62" fill="none" stroke="#52ffc8" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"></path>
+<g fill="#edfff6" font-family="system-ui" font-size="17"><text x="92" y="267">UCT</text><text x="384" y="184">Woodstock</text><text x="638" y="40">Cape Town CBD</text></g>
+<g fill="#52ffc8" stroke="#07130f" stroke-width="5"><circle cx="130" cy="225" r="11"></circle><circle cx="775" cy="62" r="11"></circle></g>
+<g transform="translate(502 118) rotate(-28)"><rect fill="#b7ff5c" height="20" rx="6" stroke="#07130f" stroke-width="3" width="34" x="-17" y="-10"></rect></g>
+<text fill="#99b8aa" font-family="system-ui" font-size="14" x="580" y="268">Route sketch · not to scale</text>
+</svg></div>
+<dl class="trip-summary"><div><dt id="trip-dt-label">Example date &amp; time</dt><dd id="trip-dd-date">01 Oct 2026 · 09:00 SAST</dd></div><div><dt id="trip-dt-distance">Example distance</dt><dd id="trip-dd-distance">8.4 km</dd></div><div><dt id="trip-dt-speed">Example average speed</dt><dd id="trip-dd-speed">35 km/h</dd></div><div><dt id="trip-dt-duration">Example duration</dt><dd id="trip-dd-duration">14 min 24 sec</dd></div></dl>
+</article></section>
+<section class="tab-panel" data-tab-panel="system-health">
+<div class="sensor-feed-heading">
+<p class="eyebrow">Diagnostics</p>
+<h2>System Health</h2>
+<p class="hero-copy">Auto-refreshes every 3 seconds.</p>
+</div>
+<article class="widget-card health-card" data-widget="health-web-broker">
+<div class="widget-header"><span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="4" ry="9"></ellipse><path d="M3 12h18"></path></svg></span><div><h3>Website → Broker</h3></div></div>
+<div class="metric-row"><span>Status</span><strong><span class="status-dot" id="health-web-broker-dot"></span> <span id="health-web-broker-text">--</span></strong></div>
+</article>
+<article class="widget-card health-card" data-widget="health-gateway-broker">
+<div class="widget-header"><span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><rect height="13" rx="3" width="16" x="4" y="4"></rect><path d="M4 11h16M7 17v3m10-3v3M7 14h1m8 0h1"></path></svg></span><div><h3>Vehicle gateway → Broker</h3></div></div>
+<div class="metric-row"><span>Status</span><strong><span class="status-dot" id="health-gateway-dot"></span> <span id="health-gateway-text">--</span></strong></div>
+<p class="widget-note">Inferred from time since the last telemetry message: <span id="health-gateway-age">--</span></p>
+</article>
+<article class="widget-card health-card"><div class="widget-header"><span class="widget-icon">◫</span><h3>Database &amp; storage</h3></div>
+<div class="metric-row"><span>InfluxDB</span><strong id="health-database">--</strong></div>
+<div class="metric-row"><span>Telemetry ingestion</span><strong id="health-ingestion">--</strong></div>
+<div class="metric-row"><span>Last stored sample</span><strong id="health-stored-age">--</strong></div>
+<p class="widget-note">Ingestion is inferred from stored samples.</p></article>
+<article class="widget-card health-card"><div class="widget-header"><span class="widget-icon">↗</span><h3>Telemetry &amp; session</h3></div>
+<div class="metric-row"><span>Receive rate · last 10 s</span><strong id="health-rate">--</strong></div>
+<div class="metric-row"><span>Messages received</span><strong id="health-message-count">--</strong></div>
+<div class="metric-row"><span>Invalid messages</span><strong id="health-invalid-count">--</strong></div>
+<div class="metric-row"><span>Connected browsers</span><strong id="health-browsers">--</strong></div>
+<div class="metric-row"><span>Website uptime</span><strong id="health-uptime">--</strong></div>
+<div class="metric-row"><span>Latest acknowledgement latency</span><strong id="health-ack-latency">--</strong></div></article>
+<p class="widget-note health-summary" id="health-checked" role="status"></p><article class="widget-card health-card" data-widget="health-logs">
+<div class="widget-header"><span aria-hidden="true" class="widget-icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewbox="0 0 24 24"><path d="M6 3h12v18H6ZM9 7h6M9 11h6M9 15h4"></path></svg></span><div><h3>Website logs — recent logins</h3></div></div>
+<div class="login-log-list" id="login-log-list"><p class="widget-note">Loading...</p></div>
+</article>
+</section>
+<section class="tab-panel" data-tab-panel="control">
+<div class="sensor-feed-heading nondeveloper">
+<p class="eyebrow">Remote control</p>
+<h2>Control</h2>
+<p class="hero-copy">Publishes a signed command to <code>tukzie/commands</code>; feedback below reflects the real ack (or lack of one) from <code>gateway/mock_ack_responder.py</code>.</p>
+</div>
+<div class="control-button-row nondeveloper">
+<button class="primary-button control-command-btn" data-cmd="hoot" type="button">Hoot</button>
+<button class="primary-button control-command-btn" data-cmd="lock" type="button">Lock</button>
+<button class="primary-button control-command-btn" data-cmd="start_engine" type="button">Start Engine</button>
+</div>
+<div class="control-feedback-list nondeveloper" id="control-feedback-list"></div>
+<div class="sensor-feed-heading developer-only"><h2>Remote Control</h2></div><div class="developer-only remote-panel"><div class="remote-grid"><article class="remote-card"><button class="remote-command" data-action="hoot" type="button"><span aria-hidden="true" class="remote-icon">♪</span><span>Hoot</span><small class="command-state">Press to sound</small></button><ol aria-live="polite" class="command-history" id="feedback-hoot"><li class="no-commands">No commands sent.</li></ol></article><article class="remote-card"><button aria-pressed="false" class="remote-command" data-action="left_indicator" type="button"><span aria-hidden="true" class="remote-icon">←</span><span>Left Indicator</span><small class="command-state">Turn on</small></button><ol aria-live="polite" class="command-history" id="feedback-left_indicator"><li class="no-commands">No commands sent.</li></ol></article><article class="remote-card"><button aria-pressed="false" class="remote-command" data-action="right_indicator" type="button"><span aria-hidden="true" class="remote-icon">→</span><span>Right Indicator</span><small class="command-state">Turn on</small></button><ol aria-live="polite" class="command-history" id="feedback-right_indicator"><li class="no-commands">No commands sent.</li></ol></article><article class="remote-card"><button aria-pressed="false" class="remote-command" data-action="hazards" type="button"><span aria-hidden="true" class="remote-icon">△</span><span>Hazards</span><small class="command-state">Turn on</small></button><ol aria-live="polite" class="command-history" id="feedback-hazards"><li class="no-commands">No commands sent.</li></ol></article></div><form class="gateway-message-form" id="gateway-message-form"><label class="field-label" for="gateway-message">Message to gateway</label><div class="message-input-row"><input class="text-input" id="gateway-message" maxlength="280" placeholder="e.g. Developer James logged in" required="" type="text"/><button class="primary-button" id="gateway-message-send" type="submit">Send message</button></div><ol aria-live="polite" class="command-history" id="feedback-message"></ol></form></div></section>
+<section class="tab-panel" data-tab-panel="analytics">
+<div class="sensor-feed-heading">
+<p class="eyebrow">History</p>
+<h2>Analytics</h2>
+<p class="hero-copy nondeveloper">Historical data from InfluxDB (via Telegraf — see <code>website/infra/</code>). Needs that stack running; otherwise this tab will show an error.</p>
+</div>
+<div class="analytics-controls">
+<label class="field-label" for="analytics-field-select">Field</label>
+<select class="select-control" id="analytics-field-select">
+<option value="">All fields (CSV only)</option>
+<option value="throttle">Throttle</option>
+<option value="brake">Brake</option>
+<option selected="" value="bSOC">Battery SoC</option>
+<option value="bVoltage">Battery Voltage</option>
+<option value="bTemp">Battery Temp</option>
+<option value="bCurrent">Battery Current</option>
+<option value="fRadar">Front Radar</option>
+<option value="bRadar">Rear Radar</option>
+<option value="light">Ambient Light</option>
+<option value="rain">Rain</option>
+</select>
+<label class="field-label" for="analytics-range-select">Range</label>
+<select class="select-control" id="analytics-range-select">
+<option value="-1h">Last hour</option>
+<option value="-24h">Last day</option>
+<option value="-7d">Last week</option>
+</select>
+<button class="primary-button" id="analytics-refresh" type="button">Refresh</button>
+<button class="primary-button" disabled="" id="analytics-export-csv" type="button">Export CSV</button>
+<button class="primary-button nondeveloper" disabled="" id="analytics-export-json" type="button">Export JSON</button>
+</div>
+<svg aria-label="Historical sensor readings" class="analytics-chart" id="analytics-chart" preserveaspectratio="none" role="img" viewbox="0 0 800 260"></svg>
+<p class="widget-note" id="analytics-status">No data loaded yet — click Refresh.</p>
+<p class="widget-note nondeveloper">Query InfluxDB directly for anything not covered here: <a href="http://localhost:8086" rel="noopener" target="_blank">localhost:8086</a> (Data Explorer). <em>Digital twin link — coming soon.</em></p>
+<div class="developer-only database-manager"><a aria-disabled="true" class="ghost-button" id="database-manager-link" rel="noopener noreferrer" target="_blank">Open Database Manager ↗</a><p class="widget-note" id="database-manager-note" role="status"></p></div></section>
+</main>
+</section>
+<div aria-hidden="true" class="modal" id="battery-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="battery-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close battery details" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">Battery pack</p>
+<h2 id="battery-modal-title">State of Charge Details</h2>
+<div class="battery-detail-grid">
+<div class="vehicle-soc large" style="--soc-level: 81%; --soc-color: var(--success);">
+<div class="vehicle-fill"></div>
+<div class="soc-percentage" id="modal-soc-value">--%</div>
+</div>
+<div class="detail-list">
+<div><span>Battery health</span><strong id="modal-health">--</strong></div>
+<div><span>Output voltage</span><strong id="modal-voltage">--</strong></div>
+<div><span>Core temperature</span><strong id="modal-core-temp">--</strong></div>
+</div>
+</div>
+<div class="charging-table-wrap">
+<h3>Charging Table</h3>
+<table class="charging-table">
+<thead>
+<tr><th></th><th>Solar <span class="dot green"></span></th><th>Wired <span class="dot red"></span></th></tr>
+</thead>
+<tbody>
+<tr><th>Input Voltage</th><td id="solar-voltage">--</td><td class="blank-cell">—</td></tr>
+<tr><th>Input Current</th><td id="solar-current">--</td><td class="blank-cell">—</td></tr>
+<tr><th>Input Power</th><td id="solar-power">--</td><td class="blank-cell">—</td></tr>
+<tr><th>Time to Full</th><td colspan="2" id="time-full">--</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="modal" id="vehicle-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="vehicle-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close vehicle diagnostics" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">🛞 Vehicle diagnostics</p>
+<h2 id="vehicle-modal-title">Full Vehicle Information</h2>
+<div class="vehicle-detail-grid">
+<div><span>Tyre pressure</span><strong id="vinfo-tyre-pressure">--</strong></div>
+<div><span>Motor temperature</span><strong id="vinfo-motor-temp">--</strong></div>
+<div><span>Vehicle load</span><strong id="vinfo-vehicle-load">--</strong></div>
+<div><span>Power draw</span><strong id="vinfo-power">--</strong></div>
+<div><span>Ambient temperature</span><strong id="vinfo-ambient-temp">--</strong></div>
+<div><span>Battery health</span><strong id="vinfo-battery-health">--</strong></div>
+<div><span>Output voltage</span><strong id="vinfo-voltage">--</strong></div>
+<div><span>Battery core temperature</span><strong id="vinfo-core-temp">--</strong></div>
+<div><span>Drive mode</span><strong id="vinfo-drive-mode">--</strong></div>
+<div><span>Throttle position</span><strong id="vinfo-throttle">--</strong></div>
+<div><span>Brake position</span><strong id="vinfo-brake">--</strong></div>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="modal" id="trip-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="trip-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close trip estimator" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<h2 id="trip-modal-title">Estimate Trip</h2>
+<p class="modal-copy">Values marked <span class="field-live">live</span> are read from the vehicle. Fill in the rest to calculate.</p>
+<p class="trip-live-banner" id="trip-live-data-banner" role="status" style="display:none;">Live vehicle data unavailable — trip estimation is paused and all fields have been cleared. Calculations resume automatically once data returns.</p>
+<div class="options-grid trip-field-grid">
+<div class="field">
+<label class="field-label" for="trip-soc-input">Starting SOC (%) <span class="field-live" title="Read from the vehicle's state of charge">live</span></label>
+<input class="text-input" data-live-source="soc" id="trip-soc-input" max="100" min="0" placeholder="--" required="" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-battery-temp-input">Battery temperature (°C) <span class="field-live" title="Read from the battery core temperature">live</span></label>
+<input class="text-input" data-live-source="coreTemp" id="trip-battery-temp-input" max="90" min="-10" placeholder="--" required="" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-avg-speed-input">Average speed (km/h) <span class="field-live" title="Fixed vehicle operating speed used for all ETA calculations">fixed</span></label>
+<input class="text-input" disabled="" id="trip-avg-speed-input" readonly="" type="number" value="35"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-cargo-input">Cargo weight (kg) <span class="field-live" title="Read from the vehicle load sensor">live</span></label>
+<input class="text-input" data-live-source="vehicleLoad" id="trip-cargo-input" max="500" min="0" placeholder="--" required="" step="1" type="number"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-passengers-input">Passenger count</label>
+<input class="text-input" id="trip-passengers-input" max="3" min="0" required="" step="1" type="number" value="1"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-distance-input">Route distance (km) <span class="field-live" id="trip-distance-source-tag" title="Distance is sourced automatically from the Navigation widget when a route is selected">manual</span></label>
+<input class="text-input" id="trip-distance-input" max="70" min="0.1" placeholder="e.g. 12.5" required="" step="0.1" type="number"/>
+<div class="trip-distance-actions">
+<button class="ghost-button" id="trip-open-nav-button" type="button">Set from Navigation</button>
+<button class="ghost-button" id="trip-clear-nav-button" style="display:none;" type="button">Clear navigation route</button>
+</div>
+<p class="trip-validation-note" id="trip-distance-error" role="alert"></p>
+</div>
+<div class="field">
+<label class="field-label" for="trip-elevation-gain-input">Elevation gain (m)</label>
+<input class="text-input" id="trip-elevation-gain-input" min="0" required="" step="1" type="number" value="0"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-elevation-loss-input">Elevation loss (m)</label>
+<input class="text-input" id="trip-elevation-loss-input" min="0" required="" step="1" type="number" value="0"/>
+</div>
+<div class="field">
+<label class="field-label" for="trip-surface-input">Surface type</label>
+<select class="select-control" id="trip-surface-input">
+<option selected="" value="asphalt">Asphalt</option>
+<option value="cobblestone">Cobblestone</option>
+<option value="gravel">Gravel</option>
+<option value="dirt">Dirt</option>
+</select>
+</div>
+<div class="field">
+<label class="field-label" for="trip-weather-input">Weather</label>
+<select class="select-control" id="trip-weather-input">
+<option selected="" value="clear">Clear</option>
+<option value="rain">Rain</option>
+<option value="wet">Wet</option>
+<option value="windy">Windy</option>
+</select>
+</div>
+</div>
+<p class="trip-validation-note" id="trip-validation-note" role="status"></p>
+<button class="primary-button" disabled="" id="trip-calc-button" type="button">Calculate</button>
+<div class="trip-result">
+<span>Estimated arrival SOC</span><strong id="trip-out-arrival-soc">--%</strong>
+<span>Estimated energy used</span><strong id="trip-out-energy-used">-- Wh</strong>
+<span>Energy consumption</span><strong id="trip-out-consumption">-- Wh/km</strong>
+<span>Estimated ETA</span><strong id="trip-out-eta">--</strong>
+<span>Trip duration</span><strong id="trip-out-duration">--</strong>
+<span>Remaining range at arrival</span><strong id="trip-out-range">-- km</strong>
+<span>Total vehicle mass</span><strong id="trip-out-mass">-- kg</strong>
+<span>Battery temperature at arrival</span><strong id="trip-out-batt-temp">--°C</strong>
+<span>Impact from weather</span><strong id="trip-out-impact-weather">--%</strong>
+<span>Impact from terrain</span><strong id="trip-out-impact-terrain">--%</strong>
+<span>Impact from cargo load</span><strong id="trip-out-impact-cargo">--%</strong>
+</div>
+<div class="trip-status" id="trip-result-status">--</div>
+<label class="field-label">Energy demand breakdown</label>
+<div aria-hidden="true" class="breakdown-bar" id="trip-breakdown-bar">
+<span class="breakdown-seg breakdown-rolling" style="width:0%"></span>
+<span class="breakdown-seg breakdown-grade" style="width:0%"></span>
+<span class="breakdown-seg breakdown-drag" style="width:0%"></span>
+<span class="breakdown-seg breakdown-accessory" style="width:0%"></span>
+</div>
+<ul class="breakdown-legend">
+<li><span class="dot breakdown-dot-rolling"></span>Rolling resistance <strong id="trip-breakdown-rolling">--</strong></li>
+<li><span class="dot breakdown-dot-grade"></span>Gradient <strong id="trip-breakdown-grade">--</strong></li>
+<li><span class="dot breakdown-dot-drag"></span>Aerodynamic drag <strong id="trip-breakdown-drag">--</strong></li>
+<li><span class="dot breakdown-dot-accessory"></span>Accessory load <strong id="trip-breakdown-accessory">--</strong></li>
+</ul>
+<label class="field-label">Driver advice</label>
+<ul class="advice-list" id="trip-advice-list"></ul>
+</div>
+</div>
+<div aria-hidden="true" class="modal" id="options-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="options-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close options" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">Simulation settings</p>
+<h2 id="options-modal-title">Trip options</h2>
+<div class="options-grid trip-field-grid">
+<div class="field">
+<label class="field-label" for="opt-battery-capacity">Battery capacity (Wh)</label>
+<input class="text-input" id="opt-battery-capacity" min="1000" step="100" type="number" value="6000"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-frontal-area">Frontal area (m²)</label>
+<input class="text-input" id="opt-frontal-area" min="0.5" step="0.05" type="number" value="2.0"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-drag-coefficient">Drag coefficient</label>
+<input class="text-input" id="opt-drag-coefficient" min="0.2" step="0.01" type="number" value="0.70"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-rolling-resistance">Rolling resistance</label>
+<input class="text-input" id="opt-rolling-resistance" min="0.005" step="0.001" type="number" value="0.015"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-curb-mass">Curb mass (kg)</label>
+<input class="text-input" id="opt-curb-mass" min="200" step="10" type="number" value="420"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-passenger-mass">Passenger mass (kg)</label>
+<input class="text-input" id="opt-passenger-mass" min="50" step="1" type="number" value="75"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-accessory-power">Accessory load (W)</label>
+<input class="text-input" id="opt-accessory-power" min="0" step="10" type="number" value="220"/>
+</div>
+<div class="field">
+<label class="field-label" for="opt-ambient-temp">Ambient temperature (°C)</label>
+<input class="text-input" id="opt-ambient-temp" max="50" min="-30" step="1" type="number" value="24"/>
+</div>
+</div>
+<button class="primary-button" id="options-save-button" type="button">Save settings</button>
+</div>
+</div>
+<div aria-hidden="true" class="modal" id="navigation-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="navigation-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close navigation" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">Destination search</p>
+<h2 id="navigation-modal-title">Navigation</h2>
+<p class="modal-copy">Search a South African address or drop a pin on the map. Selecting a destination sends the route distance straight to the Estimated Trip widget.</p>
+<div class="nav-search-row">
+<input autocomplete="off" class="text-input" id="nav-search-input" placeholder="Search a street address or place in South Africa" type="text"/>
+<button class="primary-button nav-search-button" id="nav-search-button" type="button">Search</button>
+</div>
+<ul aria-label="Destination search results" class="nav-search-results" id="nav-search-results" role="listbox"></ul>
+<p class="trip-validation-note" id="nav-search-status" role="status"></p>
+<div aria-label="Navigation map" class="nav-map-container" id="nav-map-container"></div>
+<div class="nav-selection-summary" id="nav-selection-summary" style="display:none;">
+<div>
+<span>Selected destination</span>
+<strong id="nav-selected-name">--</strong>
+</div>
+<div>
+<span>Route distance</span>
+<strong id="nav-selected-distance">-- km</strong>
+</div>
+</div>
+<p class="trip-validation-note" id="nav-distance-error" role="alert"></p>
+<button class="primary-button" disabled="" id="nav-confirm-button" type="button">Use this destination</button>
+</div>
+</div>
+<div aria-hidden="true" class="modal" id="my-trips-modal">
+<div class="modal-backdrop" data-close-modal=""></div>
+<div aria-labelledby="my-trips-modal-title" aria-modal="true" class="modal-panel wide-panel" role="dialog">
+<button aria-label="Close trip history" class="icon-button modal-close" data-close-modal="" type="button">×</button>
+<p class="eyebrow">Navigation logs</p>
+<h2 id="my-trips-modal-title">My Trip History</h2>
+<div class="trips-table-wrap">
+<table class="trips-table">
+<thead>
+<tr>
+<th>Date &amp; Time</th>
+<th>Route Area</th>
+<th>Distance</th>
+<th>Duration</th>
+<th>Avg Speed</th>
+</tr>
+</thead>
+<tbody id="my-trips-table-body"></tbody>
+</table>
+</div>
+<div class="trips-summary-row">
+<span>Total Distance (7 Days): <strong id="trips-total-distance">-- km</strong></span>
+<button class="ghost-button trips-export-button" id="trips-export-button" type="button">↓ Export CSV</button>
+</div>
+</div>
+</div>
+</div>
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script> -->
+<script src="/static/js/sensor_manager.js"></script>
+<script src="/static/js/developer.js"></script><script src="/static/js/app.js"></script>
+<script>
+    window.addEventListener("sensor-update", (e) => {
+        const { id, value } = e.detail;
+        const element = document.getElementById(id);
+        if (element) {
+            element.innerText = value;
+        }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "source": "SUMO simulation",
+  "vehicle": "0",
+  "from": "UCT",
+  "to": "Cape Town CBD",
+  "start_time_label": "2026-10-01 09:00",
+  "distance_km": 6.21,
+  "duration_s": 405.0,
+  "duration_text": "6 min 45 sec",
+  "avg_speed_kmh": 55.2,
+  "trace_points": 406,
+  "roads_drawn": 8690,
+  "net_file": "uct_cbd.net.xml",
+  "trace_file": "trace.xml"
+}

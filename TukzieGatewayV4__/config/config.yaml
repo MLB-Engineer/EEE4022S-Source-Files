@@ -1,0 +1,56 @@
+# Tukzie gateway — broker profile config
+#
+# Switch between profiles by changing `active_profile`. Nothing in
+# gateway/*.py should ever hardcode a broker host, port, or credential —
+# everything comes from whichever profile is active here.
+#
+# Never commit real passwords/tokens to git. Passwords come from
+# environment variables (see password_env_var below) — put them in a
+# local .env file that is in .gitignore, or export them in your shell.
+
+active_profile: local_docker
+
+profiles:
+  local_docker:
+    description: "Your own Docker Mosquitto broker, running on this laptop (later: on the Pi)"
+    host: "localhost"
+    port: 8883
+    tls: true
+    ca_cert_path: "./broker-config/mosquitto/certs/ca.crt"
+    username: "dev_publisher"
+    password_env_var: "TUKZIE_LOCAL_MQTT_PASSWORD"
+    topics:
+      telemetry: "tukzie/telemetry"
+      telemetry_rejected: "tukzie/telemetry/rejected"
+      commands: "tukzie/commands"
+      acks: "tukzie/acks"
+      alerts: "tukzie/alerts"
+
+  hostinger_tukzie:
+    description: "Tukzie team's live broker on Hostinger (production)"
+    host: "broker.tukzie.com"
+    port: 8883
+    tls: true
+    ca_cert_path: "./broker-config/isrgrootx1.crt"
+    username: "your_assigned_username"   # request a scoped user — do not reuse esp32_publisher/dashboard_reader
+    password_env_var: "TUKZIE_HOSTINGER_MQTT_PASSWORD"
+    topics:
+      telemetry: "tukzie/telemetry"
+      telemetry_rejected: "tukzie/telemetry/rejected"   # needs a matching ACL entry added upstream on the VPS
+      commands: "tukzie/commands"                        # needs a matching ACL entry added upstream on the VPS
+      acks: "tukzie/acks"                                 # needs a matching ACL entry added upstream on the VPS
+      alerts: "tukzie/alerts"
+
+# InfluxDB profiles (not used by Version 1, kept here for when the
+# dashboard/analytics side reads history back out)
+influxdb:
+  local_docker:
+    url: "http://localhost:8086"
+    org: "tukzie-dev"
+    bucket: "telemetry"
+    token_env_var: "TUKZIE_LOCAL_INFLUX_TOKEN"
+  hostinger_tukzie:
+    url: "https://influx.tukzie.com"
+    org: "tukzie"
+    bucket: "telemetry"
+    token_env_var: "TUKZIE_HOSTINGER_INFLUX_TOKEN"

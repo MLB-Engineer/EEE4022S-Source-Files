@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- Same brand gradient from your logo -->
+    <linearGradient id="tGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06f3ff" />
+      <stop offset="75%" stop-color="#b700ff" />
+    </linearGradient>
+  </defs>
+
+  <!-- Modern Rounded Background -->
+  <rect width="64" height="64" rx="16" fill="url(#tGrad)" />
+
+  <!-- The Letter T -->
+  <!-- Designed with thick, slightly rounded terminals to match the font -->
+  <path d="M18 16 H46 V26 H37 V50 H27 V26 H18 Z" fill="#ffffff" />
+  
+  <!-- Subtle detail: A small dot or line to mimic the movement of the logo -->
+  <circle cx="50" cy="14" r="3" fill="#ffffff" opacity="1" />
+</svg>

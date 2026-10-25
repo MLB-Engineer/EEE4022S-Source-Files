@@ -1,0 +1,8 @@
+paho-mqtt>=2.0,<3
+websockets
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+influxdb-client
+python-jose[cryptography]
+bcrypt>=4.1
+python-multipart

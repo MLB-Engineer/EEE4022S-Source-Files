@@ -1,0 +1,115 @@
+# Tukzie Gateway — Version 1, fully containerized (website side).
+#
+# Everything here talks to everything else by container name on one
+# Docker network ("tukzie-net") — nothing crosses the host's network
+# stack, which is what caused the earlier host.docker.internal/WSL2
+# problem. gateway/sensor_simulator.py and
+# gateway/mock_ack_responder.py still run directly on your laptop (not
+# containerized) and reach Mosquitto via localhost:8883, which still
+# works because that port is published below.
+#
+# One-time setup (run once, before the first `docker compose up`):
+#   docker network create tukzie-net   [if it doesn't already exist — compose creates it automatically now, see `networks:` below, so this step is no longer required, kept here as a note]
+#   cp .env.example .env               (fill in real values)
+#   touch broker-config/mosquitto/passwd   (must exist before mosquitto
+#                                            will even start — its config
+#                                            points password_file at this
+#                                            path, and it fails to boot,
+#                                            not just fails auth, if the
+#                                            file is missing)
+#   docker compose up -d mosquitto     (start only the broker first)
+#   docker compose exec mosquitto mosquitto_passwd -c /mosquitto/config/passwd dev_publisher
+#     (enter the same password as MQTT_PASSWORD in your .env)
+#
+# Then every time:
+#   docker compose up -d
+#
+# See README.md's "Fully containerized (Docker Compose)" section for
+# the full walkthrough.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto4
+    ports:
+      - "8883:8883"   # still published to the host, so gateway/*.py (run outside Docker) can reach it via localhost:8883
+    volumes:
+      - ./broker-config/mosquitto:/mosquitto/config
+    networks:
+      - tukzie-net
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb4
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - tukzie-net
+    restart: unless-stopped
+
+  telegraf:
+    image: telegraf:1.30
+    container_name: telegraf4
+    depends_on:
+      - mosquitto
+      - influxdb
+    volumes:
+      - ./website/infra/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - ./broker-config/mosquitto/certs/ca.crt:/etc/telegraf/ca.crt:ro
+    environment:
+      MQTT_HOST: mosquitto   # container name, not host.docker.internal
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+    networks:
+      - tukzie-net
+    restart: unless-stopped
+
+  website:
+    build: ./website
+    container_name: website4
+    depends_on:
+      - mosquitto
+      - influxdb
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      PORT: 8000
+      MQTT_HOST: mosquitto   # container name, not host.docker.internal
+      MQTT_PORT: 8883
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_CA_CERT_PATH: /certs/ca.crt
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+      TUKZIE_DB_PATH: /app/data/users.db
+    volumes:
+      - ./broker-config/mosquitto/certs/ca.crt:/certs/ca.crt:ro
+      - website-users-db:/app/data   # a directory mount, not a file — keeps accounts across rebuilds
+    networks:
+      - tukzie-net
+    restart: unless-stopped
+
+networks:
+  tukzie-net:
+    driver: bridge
+
+volumes:
+  influxdb-data:
+  website-users-db:

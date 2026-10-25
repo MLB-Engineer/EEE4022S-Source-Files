@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tukzie control interface (dev)</title>
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 40px auto; }
+    button { display: block; width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; }
+    .status { font-size: 14px; color: #555; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h2>Control interface (dev / mocked acks)</h2>
+  <p>Each button publishes a signed command to <code>tukzie/commands</code> and polls for an ack.</p>
+
+  <button onclick="sendCommand('lock', 'front_door')">Lock</button>
+  <div class="status" id="status-lock">no command sent yet</div>
+
+  <button onclick="sendCommand('unlock', 'front_door')">Unlock</button>
+  <div class="status" id="status-unlock">no command sent yet</div>
+
+  <button onclick="sendCommand('lights_on', 'cabin')">Lights on</button>
+  <div class="status" id="status-lights_on">no command sent yet</div>
+
+  <script>
+    async function sendCommand(cmd, target) {
+      document.getElementById('status-' + cmd).innerText = 'sent, waiting for ack...';
+      await fetch('/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd, target })
+      });
+      pollStatus(cmd);
+    }
+
+    async function pollStatus(cmd) {
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        const res = await fetch('/status/' + cmd);
+        const data = await res.json();
+        if (data.status === 'ack') {
+          document.getElementById('status-' + cmd).innerText =
+            'ACKED at ' + new Date(data.responded_at * 1000).toLocaleTimeString() + ' — ' + data.note;
+          return;
+        }
+      }
+      document.getElementById('status-' + cmd).innerText = 'no ack received (is mock_ack_responder.py running?)';
+    }
+  </script>
+</body>
+</html>
