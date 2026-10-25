@@ -1,0 +1,18 @@
+{
+  "can": {
+    "interface": "can0",
+    "listener": "~/tuktuk/tools/pi/can_listen.py"
+  },
+  "mqtt": {
+    "host": "31.97.115.21",
+    "port": 18883,
+    "topic": "tukzie/telemetry",
+    "username": "dev_publisher",
+    "password": "yes",
+    "tls": true,
+    "client_id": "tukzie-pi-can",
+    "queue_db": "can_mqtt_queue.sqlite3"
+  },
+  "publish_interval_seconds": 1,
+  "active_hold_seconds": 10
+}

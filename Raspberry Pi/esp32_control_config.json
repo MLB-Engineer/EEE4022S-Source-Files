@@ -1,0 +1,18 @@
+{
+  "serial": {
+    "port": "/dev/ttyUSB0",
+    "baudrate": 115200,
+    "timeout_seconds": 3
+  },
+  "mqtt": {
+    "host": "REPLACE_WITH_YOUR_ONE_MQTT_SERVER",
+    "port": 1883,
+    "command_topic": "tukzie/commands",
+    "ack_topic": "tukzie/acks",
+    "username": "dev_publisher",
+    "password": "yes",
+    "tls": false,
+    "client_id": "tukzie-pi-esp32-control"
+  },
+  "max_oled_text_bytes": 1024
+}
